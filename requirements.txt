@@ -1,0 +1,27 @@
+# KanMind Backend - Django REST API
+# Python 3.10+ empfohlen
+
+# Django Framework
+Django==5.1.4
+
+# Django REST Framework für API
+djangorestframework==3.15.2
+
+# Nested Routers für verschachtelte URLs
+drf-nested-routers==0.94.1
+
+# CORS Headers für Frontend-Backend Kommunikation
+django-cors-headers==4.6.0
+
+# Token-basierte Authentifizierung (JWT)
+djangorestframework-simplejwt==5.4.0
+
+# Umgebungsvariablen
+python-dotenv==1.0.1
+
+# PostgreSQL Datenbank-Adapter (optional)
+# psycopg2-binary==2.9.10
+
+# Bildverarbeitung
+pillow==11.0.0
+
