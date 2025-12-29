@@ -1,10 +1,18 @@
 # KanMind Backend
 
-Backend-API für das KanMind Kanban-Board Projekt, entwickelt mit Django und Django REST Framework.
+Backend API for the KanMind Kanban Board project, built with Django and Django REST Framework.
 
-## 🚀 Schnellstart
+## 🚀 Quick Start
 
-### 1. Virtual Environment erstellen
+### 1. Create virtual environment
+
+# KanMind Backend
+
+Backend API for the KanMind Kanban Board project, built with Django and Django REST Framework.
+
+## 🚀 Quick Start
+
+### 1. Create Virtual Environment
 
 ```bash
 cd KanMind_Backend
@@ -17,170 +25,170 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 2. Abhängigkeiten installieren
+### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Umgebungsvariablen konfigurieren
+###3. Configure Environment Variables
 
 ```bash
-# .env Datei ist bereits vorhanden, ggf. anpassen
+# .env file already exists, adjust if needed
 ```
 
-### 4. Datenbank migrieren
+###  4. Run Migrations
 
 ```bash
 python manage.py migrate
 ```
 
-### 5. Superuser erstellen
+### 5. Create Superuser
 
 ```bash
 python manage.py createsuperuser
 ```
 
-### 6. Server starten
+### 6. Start Server
 
 ```bash
 python manage.py runserver
 ```
 
-Der Server läuft unter `http://127.0.0.1:8000/`
+Server runs at `http://127.0.0.1:8000/`
 
 ---
 
-## 📁 Projektstruktur
+## 📁 Project Structure
 
 ```
 KanMind_Backend/
-├── core/                    # Projekt-Konfiguration
+├── core/                    # Project configuration
 │   ├── __init__.py
-│   ├── settings.py          # Hauptkonfiguration
-│   ├── urls.py              # Root URL-Konfiguration
+│   ├── settings.py          # Main configuration
+│   ├── urls.py              # Root URL configuration
 │   ├── wsgi.py
 │   └── asgi.py
 │
-├── auth_app/                # Authentifizierung App
+├── auth_app/                # Authentication app
 │   ├── __init__.py
 │   ├── apps.py
-│   ├── models.py            # UserProfile Model
+│   ├── models.py            # UserProfile model
 │   ├── admin.py
 │   └── api/
 │       ├── __init__.py
-│       ├── serializers.py   # User, Registration Serializers
-│       ├── views.py         # Registration, CurrentUser Views
-│       ├── urls.py          # Auth API Routes
+│       ├── serializers.py   # User, Registration serializers
+│       ├── views.py         # Registration, CurrentUser views
+│       ├── urls.py          # Auth API routes
 │       └── permissions.py   # IsOwnerOrReadOnly
 │
-├── kanban_app/              # Kanban Board App
+├── kanban_app/              # Kanban board app
 │   ├── __init__.py
 │   ├── apps.py
 │   ├── models.py            # Board, Column, Task, Subtask, Comment
 │   ├── admin.py
 │   └── api/
 │       ├── __init__.py
-│       ├── serializers.py   # Board, Column, Task Serializers
-│       ├── views.py         # ViewSets für CRUD
-│       ├── urls.py          # Kanban API Routes
-│       └── permissions.py   # Board/Task Permissions
+│       ├── serializers.py   # Board, Column, Task serializers
+│       ├── views.py         # CRUD ViewSets
+│       ├── urls.py          # Kanban API routes
+│       └── permissions.py   # Board/Task permissions
 │
 ├── manage.py
 ├── requirements.txt
-├── .env                     # Umgebungsvariablen (nicht committen!)
-├── .env.example             # Vorlage für .env
+├── .env                     # Environment variables (do NOT commit)
+├── .env.example             # Example .env file
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 📊 Datenmodelle
+## 📊 Data Models
 
 ### auth_app
 
-| Model | Beschreibung |
+| Model | Description|
 |-------|--------------|
-| `UserProfile` | Erweitertes Benutzerprofil (Avatar-Farbe) |
+| `UserProfile` | Extended user profile (avatar color)|
 
 ### kanban_app
 
-| Model | Beschreibung |
+| Model | Description |
 |-------|--------------|
-| `Board` | Kanban-Board mit Titel, Beschreibung, Eigentümer, Mitglieder |
-| `Column` | Spalten (To Do, In Progress, Done) mit Position |
-| `Task` | Aufgaben mit Priorität, Deadline, Zuweisungen |
-| `Subtask` | Unteraufgaben mit Erledigt-Status |
-| `Comment` | Kommentare zu Aufgaben |
+| `Board`   | Kanban board with title, description, owner and members |
+| `Column`  |Board columns (To Do, In Progress, Done) |
+| `Task`    | Tasks with priority, deadline and assignments |
+| `Subtask` | Subtasks with completion status |
+| `Comment` | Task comments |
 
 ---
 
 ## 🔗 API Endpoints
 
-### Authentifizierung (`/api/auth/`)
+### Authentication (`/api/auth/`)
 
-| Methode | Endpoint | Beschreibung |
+|Method | Endpoint | Description|
 |---------|----------|--------------|
-| POST | `/api/auth/register/` | Neuen Benutzer registrieren |
-| POST | `/api/auth/login/` | JWT Token erhalten |
-| POST | `/api/auth/token/refresh/` | Token erneuern |
-| GET | `/api/auth/me/` | Aktueller Benutzer |
-| GET/PUT | `/api/auth/profile/` | Benutzerprofil |
+| POST | `/api/auth/registration/` | Registration new user |
+| POST | `/api/auth/login/` | Get JWT token |
+| POST | `/api/auth/token/refresh/` | Refresh token |
+| GET | `/api/auth/me/` | Current user |
+| GET/PUT | `/api/auth/profile/` | User profile |
 
 ### Boards (`/api/boards/`)
 
-| Methode | Endpoint | Beschreibung |
+| Method | Endpoint | Description |
 |---------|----------|--------------|
-| GET | `/api/boards/` | Alle Boards auflisten |
-| POST | `/api/boards/` | Neues Board erstellen |
-| GET | `/api/boards/{id}/` | Board Details mit Spalten |
-| PUT | `/api/boards/{id}/` | Board aktualisieren |
-| DELETE | `/api/boards/{id}/` | Board löschen |
+| GET | `/api/boards/` | List all boards |
+| POST | `/api/boards/` | Create board |
+| GET | `/api/boards/{id}/` | Board details |
+| PUT | `/api/boards/{id}/` | Update board|
+| DELETE | `/api/boards/{id}/` | Delete board |
 
-### Spalten (`/api/boards/{board_id}/columns/`)
+### Columns (`/api/boards/{board_id}/columns/`)
 
-| Methode | Endpoint | Beschreibung |
+| Method | Endpoint | Description  |
 |---------|----------|--------------|
-| GET | `/api/boards/{id}/columns/` | Spalten eines Boards |
-| POST | `/api/boards/{id}/columns/` | Neue Spalte erstellen |
-| PUT | `/api/boards/{id}/columns/{col_id}/` | Spalte aktualisieren |
-| DELETE | `/api/boards/{id}/columns/{col_id}/` | Spalte löschen |
+| GET | `/api/boards/{id}/columns/` | List columns |
+| POST | `/api/boards/{id}/columns/` |Create column |
+| PUT | `/api/boards/{id}/columns/{col_id}/` | Update column |
+| DELETE | `/api/boards/{id}/columns/{col_id}/` | Delete column |
 
 ### Tasks (`/api/tasks/`)
 
-| Methode | Endpoint | Beschreibung |
+| Method | Endpoint | Description  |
 |---------|----------|--------------|
-| GET | `/api/tasks/` | Alle Tasks auflisten |
-| POST | `/api/tasks/` | Neue Task erstellen |
-| GET | `/api/tasks/{id}/` | Task Details |
-| PUT | `/api/tasks/{id}/` | Task aktualisieren |
-| DELETE | `/api/tasks/{id}/` | Task löschen |
-| PATCH | `/api/tasks/{id}/move/` | Task verschieben |
+| GET | `/api/tasks/` | List tasks |
+| POST | `/api/tasks/` |Create task|
+| GET | `/api/tasks/{id}/` | Task details |
+| PUT | `/api/tasks/{id}/` | Update task |
+| DELETE | `/api/tasks/{id}/` |Delete task |
+| PATCH | `/api/tasks/{id}/move/` | Move task|
 
 ### Subtasks (`/api/tasks/{task_id}/subtasks/`)
 
-| Methode | Endpoint | Beschreibung |
+| Methode | Endpoint | Description  |
 |---------|----------|--------------|
-| GET | `/api/tasks/{id}/subtasks/` | Subtasks einer Task |
-| POST | `/api/tasks/{id}/subtasks/` | Neue Subtask |
-| PATCH | `/api/tasks/{id}/subtasks/{sub_id}/toggle/` | Status wechseln |
+| GET | `/api/tasks/{id}/subtasks/` | List subtasks |
+| POST | `/api/tasks/{id}/subtasks/` |Create subtask |
+| PATCH | `/api/tasks/{id}/subtasks/{sub_id}/toggle/` | Toggle subtask status|
 
-### Kommentare (`/api/tasks/{task_id}/comments/`)
+### Comments (`/api/tasks/{task_id}/comments/`)
 
-| Methode | Endpoint | Beschreibung |
+| Methode | Endpoint | Description  |
 |---------|----------|--------------|
-| GET | `/api/tasks/{id}/comments/` | Kommentare einer Task |
-| POST | `/api/tasks/{id}/comments/` | Neuer Kommentar |
-| DELETE | `/api/tasks/{id}/comments/{com_id}/` | Kommentar löschen |
+| GET | `/api/tasks/{id}/comments/` |List comments |
+| POST | `/api/tasks/{id}/comments/` | Create comment |
+| DELETE | `/api/tasks/{id}/comments/{com_id}/` | Delete comment |
 
 ---
 
-## 🔒 Authentifizierung
+## 🔒 Authentication
 
-Das Projekt verwendet **JWT (JSON Web Tokens)**.
+This project uses **JWT (JSON Web Tokens)**.
 
-### Token erhalten
+### Get token
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/auth/login/ \
@@ -188,7 +196,7 @@ curl -X POST http://127.0.0.1:8000/api/auth/login/ \
   -d '{"username": "user", "password": "password"}'
 ```
 
-### API-Anfrage mit Token
+### Use token
 
 ```bash
 curl http://127.0.0.1:8000/api/boards/ \
@@ -197,9 +205,9 @@ curl http://127.0.0.1:8000/api/boards/ \
 
 ---
 
-## ⚙️ Konfiguration
+## ⚙️ Configuration
 
-### Umgebungsvariablen (.env)
+### Environment Variables (.env)
 
 ```env
 SECRET_KEY=dein-geheimer-schluessel
@@ -212,21 +220,21 @@ REFRESH_TOKEN_LIFETIME_DAYS=7
 
 ---
 
-## 🛠️ Entwicklung
+## 🛠️ Development
 
-### Migrations erstellen
+### Create Migrations
 
 ```bash
 python manage.py makemigrations
 python manage.py migrate
 ```
 
-### Admin-Oberfläche
+### Admin Panel
 
-Verfügbar unter `http://127.0.0.1:8000/admin/`
+Available at `http://127.0.0.1:8000/admin/`
 
 ---
 
 ## 📝 Lizenz
 
-Dieses Projekt ist ausschließlich für Schüler der Developer Akademie bestimmt.
+This project is intended exclusively for students of the Developer Akademie.
