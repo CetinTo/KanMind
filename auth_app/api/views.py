@@ -69,7 +69,7 @@ class LoginView(APIView):
 class RegistrationView(CreateAPIView):
     """
     API endpoint for user registration.
-    POST /api/auth/register/
+    POST /api/auth/registration/
     """
     queryset = User.objects.all()
     serializer_class = RegistrationSerializer
