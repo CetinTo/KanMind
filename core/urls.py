@@ -2,7 +2,7 @@
 URL configuration for KanMind Backend.
 """
 
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib import admin
 from django.urls import include, path
 

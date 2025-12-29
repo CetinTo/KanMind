@@ -1,13 +1,13 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-# 2. Lokale Importe
+# 2. Local imports
 from auth_app.models import UserProfile
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Serializer für das Benutzerprofil."""
+    """Serializer for user profile."""
 
     class Meta:
         model = UserProfile
@@ -16,7 +16,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer für Benutzerinformationen."""
+    """Serializer for user information."""
     profile = UserProfileSerializer(read_only=True)
 
     class Meta:
@@ -27,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    """Serializer für die Benutzerregistrierung."""
+    """Serializer for user registration."""
     password = serializers.CharField(
         write_only=True,
         min_length=8,
@@ -44,22 +44,22 @@ class RegistrationSerializer(serializers.ModelSerializer):
                   'password_confirm', 'first_name', 'last_name']
 
     def validate_email(self, value):
-        """Prüft, ob die E-Mail bereits existiert."""
+        """Checks if email already exists."""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
-                'Diese E-Mail-Adresse wird bereits verwendet.')
+                'This email address is already in use.')
         return value
 
     def validate(self, attrs):
-        """Prüft, ob die Passwörter übereinstimmen."""
+        """Checks if passwords match."""
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({
-                'password_confirm': 'Die Passwörter stimmen nicht überein.'
+                'password_confirm': 'Passwords do not match.'
             })
         return attrs
 
     def create(self, validated_data):
-        """Erstellt einen neuen Benutzer mit Profil."""
+        """Creates a new user with profile."""
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
 
@@ -67,7 +67,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
 
-        # Erstelle automatisch ein Profil
+        # Automatically create a profile
         UserProfile.objects.create(user=user)
 
         return user

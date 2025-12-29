@@ -1,10 +1,10 @@
-# 1. Drittanbieter
+# 1. Third-party
 from rest_framework import permissions
 
 
 class IsBoardOwner(permissions.BasePermission):
     """
-    Erlaubt nur dem Board-Eigentümer Änderungen.
+    Only allows the board owner to make changes.
     """
 
     def has_object_permission(self, request, view, obj):
@@ -15,20 +15,20 @@ class IsBoardOwner(permissions.BasePermission):
 
 class IsBoardMemberOrOwner(permissions.BasePermission):
     """
-    Erlaubt Zugriff für Board-Eigentümer und Mitglieder.
+    Allows access for board owners and members.
     """
 
     def has_object_permission(self, request, view, obj):
-        # Für Board-Objekte
+        # For Board objects
         if hasattr(obj, 'owner'):
             return obj.owner == request.user or request.user in obj.members.all()
 
-        # Für Column-Objekte
+        # For Column objects
         if hasattr(obj, 'board'):
             board = obj.board
             return board.owner == request.user or request.user in board.members.all()
 
-        # Für Task-Objekte
+        # For Task objects
         if hasattr(obj, 'column'):
             board = obj.column.board
             return board.owner == request.user or request.user in board.members.all()
@@ -38,7 +38,7 @@ class IsBoardMemberOrOwner(permissions.BasePermission):
 
 class IsCommentAuthor(permissions.BasePermission):
     """
-    Erlaubt nur dem Autor eines Kommentars das Bearbeiten/Löschen.
+    Only allows the comment author to edit/delete.
     """
 
     def has_object_permission(self, request, view, obj):

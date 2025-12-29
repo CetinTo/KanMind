@@ -1,25 +1,25 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib.auth.models import User
 from django.db import models
 
 
 class Board(models.Model):
     """
-    Kanban Board - Hauptcontainer für Spalten und Aufgaben.
+    Kanban Board - Main container for columns and tasks.
     """
-    title = models.CharField(max_length=200, verbose_name='Titel')
-    description = models.TextField(blank=True, verbose_name='Beschreibung')
+    title = models.CharField(max_length=200, verbose_name='Title')
+    description = models.TextField(blank=True, verbose_name='Description')
     owner = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='owned_boards',
-        verbose_name='Eigentümer'
+        verbose_name='Owner'
     )
     members = models.ManyToManyField(
         User,
         related_name='member_boards',
         blank=True,
-        verbose_name='Mitglieder'
+        verbose_name='Members'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -35,7 +35,7 @@ class Board(models.Model):
 
 class Column(models.Model):
     """
-    Spalte eines Boards (z.B. To Do, In Progress, Done).
+    Column of a board (e.g. To Do, In Progress, Done).
     """
     board = models.ForeignKey(
         Board,
@@ -43,12 +43,12 @@ class Column(models.Model):
         related_name='columns',
         verbose_name='Board'
     )
-    title = models.CharField(max_length=100, verbose_name='Titel')
+    title = models.CharField(max_length=100, verbose_name='Title')
     position = models.PositiveIntegerField(default=0, verbose_name='Position')
 
     class Meta:
-        verbose_name = 'Spalte'
-        verbose_name_plural = 'Spalten'
+        verbose_name = 'Column'
+        verbose_name_plural = 'Columns'
         ordering = ['position']
 
     def __str__(self):
@@ -57,50 +57,50 @@ class Column(models.Model):
 
 class Task(models.Model):
     """
-    Aufgabe/Ticket innerhalb einer Spalte.
+    Task/Ticket within a column.
     """
     PRIORITY_LOW = 'low'
     PRIORITY_MEDIUM = 'medium'
     PRIORITY_HIGH = 'high'
 
     PRIORITY_CHOICES = [
-        (PRIORITY_LOW, 'Niedrig'),
-        (PRIORITY_MEDIUM, 'Mittel'),
-        (PRIORITY_HIGH, 'Hoch'),
+        (PRIORITY_LOW, 'Low'),
+        (PRIORITY_MEDIUM, 'Medium'),
+        (PRIORITY_HIGH, 'High'),
     ]
 
-    title = models.CharField(max_length=200, verbose_name='Titel')
-    description = models.TextField(blank=True, verbose_name='Beschreibung')
+    title = models.CharField(max_length=200, verbose_name='Title')
+    description = models.TextField(blank=True, verbose_name='Description')
     column = models.ForeignKey(
         Column,
         on_delete=models.CASCADE,
         related_name='tasks',
-        verbose_name='Spalte'
+        verbose_name='Column'
     )
     assigned_to = models.ManyToManyField(
         User,
         related_name='assigned_tasks',
         blank=True,
-        verbose_name='Zugewiesen an'
+        verbose_name='Assigned to'
     )
     priority = models.CharField(
         max_length=10,
         choices=PRIORITY_CHOICES,
         default=PRIORITY_MEDIUM,
-        verbose_name='Priorität'
+        verbose_name='Priority'
     )
     due_date = models.DateField(
         null=True,
         blank=True,
-        verbose_name='Fälligkeitsdatum'
+        verbose_name='Due date'
     )
     position = models.PositiveIntegerField(default=0, verbose_name='Position')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Aufgabe'
-        verbose_name_plural = 'Aufgaben'
+        verbose_name = 'Task'
+        verbose_name_plural = 'Tasks'
         ordering = ['position']
 
     def __str__(self):
@@ -109,20 +109,20 @@ class Task(models.Model):
 
 class Subtask(models.Model):
     """
-    Unteraufgabe einer Aufgabe.
+    Subtask of a task.
     """
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
         related_name='subtasks',
-        verbose_name='Aufgabe'
+        verbose_name='Task'
     )
-    title = models.CharField(max_length=200, verbose_name='Titel')
-    is_completed = models.BooleanField(default=False, verbose_name='Erledigt')
+    title = models.CharField(max_length=200, verbose_name='Title')
+    is_completed = models.BooleanField(default=False, verbose_name='Completed')
 
     class Meta:
-        verbose_name = 'Unteraufgabe'
-        verbose_name_plural = 'Unteraufgaben'
+        verbose_name = 'Subtask'
+        verbose_name_plural = 'Subtasks'
         ordering = ['id']
 
     def __str__(self):
@@ -132,28 +132,28 @@ class Subtask(models.Model):
 
 class Comment(models.Model):
     """
-    Kommentar zu einer Aufgabe.
+    Comment on a task.
     """
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
         related_name='comments',
-        verbose_name='Aufgabe'
+        verbose_name='Task'
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='comments',
-        verbose_name='Autor'
+        verbose_name='Author'
     )
-    content = models.TextField(verbose_name='Inhalt')
+    content = models.TextField(verbose_name='Content')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Kommentar'
-        verbose_name_plural = 'Kommentare'
+        verbose_name = 'Comment'
+        verbose_name_plural = 'Comments'
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Kommentar von {self.author.username} zu {self.task.title}"
+        return f"Comment by {self.author.username} on {self.task.title}"

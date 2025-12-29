@@ -1,4 +1,4 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import status
@@ -8,20 +8,20 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-# 2. Lokale Importe
+# 2. Local imports
 from .permissions import IsOwnerOrReadOnly
 from .serializers import RegistrationSerializer, UserProfileSerializer, UserSerializer
 
 
 class LoginView(APIView):
     """
-    API-Endpunkt für den Login.
+    API endpoint for login.
     POST /api/auth/login/
     
-    Erwartet: { "email": "...", "password": "..." }
-    Oder:     { "username": "...", "password": "..." }
+    Expects: { "email": "...", "password": "..." }
+    Or:      { "username": "...", "password": "..." }
     
-    Gibt zurück: { "token": "...", "user_id": ..., "email": "...", "fullname": "..." }
+    Returns: { "token": "...", "user_id": ..., "email": "...", "fullname": "..." }
     """
     permission_classes = [AllowAny]
 
@@ -30,30 +30,30 @@ class LoginView(APIView):
         username = request.data.get('username')
         password = request.data.get('password')
 
-        # Login via Email oder Username
+        # Login via email or username
         if email and not username:
             try:
                 user_obj = User.objects.get(email=email)
                 username = user_obj.username
             except User.DoesNotExist:
                 return Response(
-                    {'error': 'Benutzer nicht gefunden.'},
+                    {'error': 'User not found.'},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
 
-        # Authentifizierung
+        # Authentication
         user = authenticate(username=username, password=password)
 
         if user is None:
             return Response(
-                {'error': 'Ungültige Anmeldedaten.'},
+                {'error': 'Invalid credentials.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # Token erstellen oder abrufen
+        # Create or retrieve token
         token, _ = Token.objects.get_or_create(user=user)
 
-        # Fullname zusammensetzen
+        # Compose fullname
         fullname = f"{user.first_name} {user.last_name}".strip()
         if not fullname:
             fullname = user.username
@@ -68,7 +68,7 @@ class LoginView(APIView):
 
 class RegistrationView(CreateAPIView):
     """
-    API-Endpunkt für die Benutzerregistrierung.
+    API endpoint for user registration.
     POST /api/auth/register/
     """
     queryset = User.objects.all()
@@ -80,10 +80,10 @@ class RegistrationView(CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Token erstellen
+        # Create token
         token, _ = Token.objects.get_or_create(user=user)
 
-        # Fullname zusammensetzen
+        # Compose fullname
         fullname = f"{user.first_name} {user.last_name}".strip()
         if not fullname:
             fullname = user.username
@@ -98,7 +98,7 @@ class RegistrationView(CreateAPIView):
 
 class CurrentUserView(APIView):
     """
-    API-Endpunkt für den aktuellen Benutzer.
+    API endpoint for current user.
     GET /api/auth/me/
     """
     permission_classes = [IsAuthenticated]
@@ -110,7 +110,7 @@ class CurrentUserView(APIView):
 
 class UserProfileView(RetrieveUpdateAPIView):
     """
-    API-Endpunkt für das Benutzerprofil.
+    API endpoint for user profile.
     GET/PUT/PATCH /api/auth/profile/
     """
     serializer_class = UserProfileSerializer

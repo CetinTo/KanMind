@@ -1,7 +1,7 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib import admin
 
-# 2. Lokale Importe
+# 2. Local imports
 from .models import Board, Column, Comment, Subtask, Task
 
 
@@ -34,7 +34,7 @@ class BoardAdmin(admin.ModelAdmin):
 
     def member_count(self, obj):
         return obj.members.count()
-    member_count.short_description = 'Mitglieder'
+    member_count.short_description = 'Members'
 
 
 @admin.register(Column)
@@ -46,7 +46,7 @@ class ColumnAdmin(admin.ModelAdmin):
 
     def task_count(self, obj):
         return obj.tasks.count()
-    task_count.short_description = 'Aufgaben'
+    task_count.short_description = 'Tasks'
 
 
 @admin.register(Task)
@@ -77,4 +77,4 @@ class CommentAdmin(admin.ModelAdmin):
 
     def short_content(self, obj):
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
-    short_content.short_description = 'Inhalt'
+    short_content.short_description = 'Content'

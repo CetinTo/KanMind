@@ -1,7 +1,7 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib import admin
 
-# 2. Lokale Importe
+# 2. Local imports
 from .models import UserProfile
 
 

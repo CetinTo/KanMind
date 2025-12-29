@@ -1,16 +1,16 @@
-# 1. Drittanbieter
+# 1. Third-party
 from rest_framework import permissions
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
-    Erlaubt nur dem Eigentümer das Bearbeiten eines Objekts.
+    Only allows the owner to edit an object.
     """
 
     def has_object_permission(self, request, view, obj):
-        # Lesezugriff für alle authentifizierten Benutzer
+        # Read access for all authenticated users
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        # Schreibzugriff nur für den Eigentümer
+        # Write access only for the owner
         return obj.user == request.user

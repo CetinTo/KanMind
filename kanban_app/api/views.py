@@ -1,11 +1,11 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.db.models import Q
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-# 2. Lokale Importe
+# 2. Local imports
 from kanban_app.models import Board, Column, Comment, Subtask, Task
 from .permissions import IsBoardMemberOrOwner, IsCommentAuthor
 from .serializers import (
@@ -21,7 +21,7 @@ from .serializers import (
 
 class BoardViewSet(viewsets.ModelViewSet):
     """
-    ViewSet für Board CRUD-Operationen.
+    ViewSet for Board CRUD operations.
 
     list:   GET    /api/boards/
     create: POST   /api/boards/
@@ -33,7 +33,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsBoardMemberOrOwner]
 
     def get_queryset(self):
-        """Gibt nur Boards zurück, bei denen der User Eigentümer oder Mitglied ist."""
+        """Returns only boards where the user is owner or member."""
         user = self.request.user
         return Board.objects.filter(
             Q(owner=user) | Q(members=user)
@@ -45,10 +45,10 @@ class BoardViewSet(viewsets.ModelViewSet):
         return BoardSerializer
 
     def perform_create(self, serializer):
-        """Erstellt ein neues Board mit Standard-Spalten."""
+        """Creates a new board with default columns."""
         board = serializer.save(owner=self.request.user)
 
-        # Erstelle Standard-Spalten (4 für Frontend-Kompatibilität)
+        # Create default columns (4 for frontend compatibility)
         Column.objects.bulk_create([
             Column(board=board, title='To Do', position=0),
             Column(board=board, title='In Progress', position=1),
@@ -59,7 +59,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
 class ColumnViewSet(viewsets.ModelViewSet):
     """
-    ViewSet für Column CRUD-Operationen.
+    ViewSet for Column CRUD operations.
 
     list:   GET    /api/boards/{board_id}/columns/
     create: POST   /api/boards/{board_id}/columns/
@@ -71,7 +71,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Gibt Spalten des angegebenen Boards zurück."""
+        """Returns columns of the specified board."""
         board_id = self.kwargs.get('board_pk')
         user = self.request.user
 
@@ -82,18 +82,18 @@ class ColumnViewSet(viewsets.ModelViewSet):
         ).prefetch_related('tasks')
 
     def perform_create(self, serializer):
-        """Erstellt eine neue Spalte im angegebenen Board."""
+        """Creates a new column in the specified board."""
         board_id = self.kwargs.get('board_pk')
         board = Board.objects.get(pk=board_id)
 
-        # Setze Position ans Ende
+        # Set position to end
         last_position = Column.objects.filter(board=board).count()
         serializer.save(board=board, position=last_position)
 
 
 class TaskViewSet(viewsets.ModelViewSet):
     """
-    ViewSet für Task CRUD-Operationen.
+    ViewSet for Task CRUD operations.
 
     list:   GET    /api/tasks/
     create: POST   /api/tasks/
@@ -106,7 +106,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Gibt Tasks zurück, die zu Boards des Users gehören."""
+        """Returns tasks belonging to the user's boards."""
         user = self.request.user
 
         return Task.objects.filter(
@@ -121,7 +121,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='assigned-to-me')
     def assigned_to_me(self, request):
         """
-        Gibt alle Tasks zurück, die dem aktuellen User zugewiesen sind.
+        Returns all tasks assigned to the current user.
         GET /api/tasks/assigned-to-me/
         """
         tasks = Task.objects.filter(
@@ -134,7 +134,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='reviewing')
     def reviewing(self, request):
         """
-        Gibt alle Tasks zurück, die der User erstellt hat (zum Reviewen).
+        Returns all tasks the user created (for reviewing).
         GET /api/tasks/reviewing/
         """
         tasks = Task.objects.filter(
@@ -149,7 +149,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def move(self, request, pk=None):
         """
-        Verschiebt eine Task in eine andere Spalte oder Position.
+        Moves a task to another column or position.
         PATCH /api/tasks/{id}/move/
         Body: { "column_id": 2, "position": 0 }
         """
@@ -171,7 +171,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 class SubtaskViewSet(viewsets.ModelViewSet):
     """
-    ViewSet für Subtask CRUD-Operationen.
+    ViewSet for Subtask CRUD operations.
 
     list:   GET    /api/tasks/{task_id}/subtasks/
     create: POST   /api/tasks/{task_id}/subtasks/
@@ -183,19 +183,19 @@ class SubtaskViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Gibt Subtasks der angegebenen Task zurück."""
+        """Returns subtasks of the specified task."""
         task_id = self.kwargs.get('task_pk')
         return Subtask.objects.filter(task_id=task_id)
 
     def perform_create(self, serializer):
-        """Erstellt eine neue Subtask."""
+        """Creates a new subtask."""
         task_id = self.kwargs.get('task_pk')
         serializer.save(task_id=task_id)
 
     @action(detail=True, methods=['patch'])
     def toggle(self, request, task_pk=None, pk=None):
         """
-        Wechselt den Erledigt-Status einer Subtask.
+        Toggles the completed status of a subtask.
         PATCH /api/tasks/{task_id}/subtasks/{id}/toggle/
         """
         subtask = self.get_object()
@@ -207,7 +207,7 @@ class SubtaskViewSet(viewsets.ModelViewSet):
 
 class CommentViewSet(viewsets.ModelViewSet):
     """
-    ViewSet für Comment CRUD-Operationen.
+    ViewSet for Comment CRUD operations.
 
     list:   GET    /api/tasks/{task_id}/comments/
     create: POST   /api/tasks/{task_id}/comments/
@@ -219,11 +219,11 @@ class CommentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsCommentAuthor]
 
     def get_queryset(self):
-        """Gibt Kommentare der angegebenen Task zurück."""
+        """Returns comments of the specified task."""
         task_id = self.kwargs.get('task_pk')
         return Comment.objects.filter(task_id=task_id).select_related('author')
 
     def perform_create(self, serializer):
-        """Erstellt einen neuen Kommentar."""
+        """Creates a new comment."""
         task_id = self.kwargs.get('task_pk')
         serializer.save(task_id=task_id, author=self.request.user)

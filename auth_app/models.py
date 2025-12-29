@@ -1,11 +1,11 @@
-# 1. Drittanbieter
+# 1. Third-party
 from django.contrib.auth.models import User
 from django.db import models
 
 
 class UserProfile(models.Model):
     """
-    Erweitertes Benutzerprofil für zusätzliche Informationen.
+    Extended user profile for additional information.
     """
     user = models.OneToOneField(
         User,
@@ -15,15 +15,15 @@ class UserProfile(models.Model):
     avatar_color = models.CharField(
         max_length=7,
         default='#4CAF50',
-        verbose_name='Avatar-Farbe'
+        verbose_name='Avatar color'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Benutzerprofil'
-        verbose_name_plural = 'Benutzerprofile'
+        verbose_name = 'User profile'
+        verbose_name_plural = 'User profiles'
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Profil von {self.user.username}"
+        return f"Profile of {self.user.username}"
