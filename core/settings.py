@@ -2,11 +2,11 @@
 Django settings for KanMind Backend project.
 """
 
-# 1. Standardbibliothek
+# 1. Standard library
 import os
 from pathlib import Path
 
-# 2. Drittanbieter
+# 2. Third-party
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -92,8 +92,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-LANGUAGE_CODE = 'de-de'
-TIME_ZONE = 'Europe/Berlin'
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
