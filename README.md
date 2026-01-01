@@ -4,14 +4,6 @@ Backend API for the KanMind Kanban Board project, built with Django and Django R
 
 ## 🚀 Quick Start
 
-### 1. Create virtual environment
-
-# KanMind Backend
-
-Backend API for the KanMind Kanban Board project, built with Django and Django REST Framework.
-
-## 🚀 Quick Start
-
 ### 1. Create Virtual Environment
 
 ```bash
