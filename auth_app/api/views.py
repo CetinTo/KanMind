@@ -16,7 +16,7 @@ from .serializers import RegistrationSerializer, UserProfileSerializer, UserSeri
 class LoginView(APIView):
     """
     API endpoint for login.
-    POST /api/auth/login/
+    POST /api/login/
     
     Expects: { "email": "...", "password": "..." }
     Or:      { "username": "...", "password": "..." }
@@ -69,7 +69,7 @@ class LoginView(APIView):
 class RegistrationView(CreateAPIView):
     """
     API endpoint for user registration.
-    POST /api/auth/registration/
+    POST /api/registration/
     """
     queryset = User.objects.all()
     serializer_class = RegistrationSerializer
@@ -99,7 +99,7 @@ class RegistrationView(CreateAPIView):
 class CurrentUserView(APIView):
     """
     API endpoint for current user.
-    GET /api/auth/me/
+    GET /api/me/
     """
     permission_classes = [IsAuthenticated]
 
@@ -111,10 +111,36 @@ class CurrentUserView(APIView):
 class UserProfileView(RetrieveUpdateAPIView):
     """
     API endpoint for user profile.
-    GET/PUT/PATCH /api/auth/profile/
+    GET/PUT/PATCH /api/profile/
     """
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
 
     def get_object(self):
         return self.request.user.profile
+
+
+class EmailCheckView(APIView):
+    """
+    API endpoint for email availability check.
+    POST /api/email-check/
+    
+    Expects: { "email": "..." }
+    Returns: { "available": true/false }
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        
+        if not email:
+            return Response(
+                {'error': 'Email is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        is_available = not User.objects.filter(email=email).exists()
+        
+        return Response({
+            'available': is_available
+        })

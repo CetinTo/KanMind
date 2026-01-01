@@ -147,23 +147,36 @@ class TaskSerializer(serializers.ModelSerializer):
         assignee_id = validated_data.pop('assignee_id', None)
         reviewer_id = validated_data.pop('reviewer_id', None)
 
-        # Convert status to column
-        if status and board_id and 'column' not in validated_data:
-            status_map = {
-                'to-do': 'To Do',
-                'in-progress': 'In Progress',
-                'review': 'Review',
-                'done': 'Done',
-            }
-            column_title = status_map.get(status, 'To Do')
-            try:
-                column = Column.objects.get(board_id=board_id, title=column_title)
-                validated_data['column'] = column
-            except Column.DoesNotExist:
-                # Fallback: first column of the board
+        # Ensure column is set
+        if 'column' not in validated_data:
+            if status and board_id:
+                # Convert status to column
+                status_map = {
+                    'to-do': 'To Do',
+                    'in-progress': 'In Progress',
+                    'review': 'Review',
+                    'done': 'Done',
+                }
+                column_title = status_map.get(status, 'To Do')
+                try:
+                    column = Column.objects.get(board_id=board_id, title=column_title)
+                    validated_data['column'] = column
+                except Column.DoesNotExist:
+                    # Fallback: first column of the board
+                    column = Column.objects.filter(board_id=board_id).first()
+                    if column:
+                        validated_data['column'] = column
+            elif board_id:
+                # If no status but board_id, use first column
                 column = Column.objects.filter(board_id=board_id).first()
                 if column:
                     validated_data['column'] = column
+        
+        # Validate that column is set
+        if 'column' not in validated_data:
+            raise serializers.ValidationError(
+                {'column': 'Column is required. Provide either column, or board + status.'}
+            )
 
         task = super().create(validated_data)
 

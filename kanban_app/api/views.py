@@ -1,6 +1,6 @@
 # 1. Third-party
 from django.db.models import Q
-from rest_framework import viewsets
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -75,11 +75,14 @@ class ColumnViewSet(viewsets.ModelViewSet):
         board_id = self.kwargs.get('board_pk')
         user = self.request.user
 
-        return Column.objects.filter(
-            board_id=board_id
-        ).filter(
-            Q(board__owner=user) | Q(board__members=user)
-        ).prefetch_related('tasks')
+        if board_id:
+            return Column.objects.filter(
+                board_id=board_id
+            ).filter(
+                Q(board__owner=user) | Q(board__members=user)
+            ).distinct().prefetch_related('tasks')
+        
+        return Column.objects.none()
 
     def perform_create(self, serializer):
         """Creates a new column in the specified board."""
@@ -185,12 +188,23 @@ class SubtaskViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Returns subtasks of the specified task."""
         task_id = self.kwargs.get('task_pk')
+        if not task_id:
+            return Subtask.objects.none()
         return Subtask.objects.filter(task_id=task_id)
 
     def perform_create(self, serializer):
         """Creates a new subtask."""
         task_id = self.kwargs.get('task_pk')
-        serializer.save(task_id=task_id)
+        if not task_id:
+            raise serializers.ValidationError({'task': 'Task ID is required.'})
+        
+        # Verify task exists
+        try:
+            task = Task.objects.get(pk=task_id)
+        except Task.DoesNotExist:
+            raise serializers.ValidationError({'task': 'Task not found.'})
+        
+        serializer.save(task=task)
 
     @action(detail=True, methods=['patch'])
     def toggle(self, request, task_pk=None, pk=None):
@@ -221,9 +235,20 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Returns comments of the specified task."""
         task_id = self.kwargs.get('task_pk')
+        if not task_id:
+            return Comment.objects.none()
         return Comment.objects.filter(task_id=task_id).select_related('author')
 
     def perform_create(self, serializer):
         """Creates a new comment."""
         task_id = self.kwargs.get('task_pk')
-        serializer.save(task_id=task_id, author=self.request.user)
+        if not task_id:
+            raise serializers.ValidationError({'task': 'Task ID is required.'})
+        
+        # Verify task exists
+        try:
+            task = Task.objects.get(pk=task_id)
+        except Task.DoesNotExist:
+            raise serializers.ValidationError({'task': 'Task not found.'})
+        
+        serializer.save(task=task, author=self.request.user)
