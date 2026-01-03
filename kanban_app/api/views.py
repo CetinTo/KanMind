@@ -17,6 +17,7 @@ from .serializers import (
     SubtaskSerializer,
     TaskListSerializer,
     TaskSerializer,
+    TaskUpdateResponseSerializer,
 )
 
 
@@ -128,7 +129,98 @@ class TaskViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'list':
             return TaskListSerializer
+        if self.action == 'create':
+            return TaskSerializer
+        if self.action in ['update', 'partial_update']:
+            return TaskSerializer
         return TaskSerializer
+
+    def update(self, request, *args, **kwargs):
+        """Updates a task and returns it in the list format."""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Check board membership
+        board = instance.column.board
+        user = request.user
+        if board.owner != user and user not in board.members.all():
+            return Response(
+                {'error': 'You must be a member of the board to update tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        task = serializer.save()
+        
+        # Reload task with related data for response
+        task = Task.objects.select_related('column__board').prefetch_related(
+            'subtasks', 'comments', 'assigned_to'
+        ).get(id=task.id)
+        
+        # Return response using TaskUpdateResponseSerializer format
+        response_serializer = TaskUpdateResponseSerializer(task)
+        return Response(response_serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Partial update (PATCH) for a task."""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Deletes a task. Only board owner or task creator can delete."""
+        instance = self.get_object()
+        
+        # Check if user is board owner or task creator
+        board = instance.column.board
+        user = request.user
+        
+        if board.owner != user and (not instance.created_by or instance.created_by != user):
+            return Response(
+                {'error': 'Only the board owner or task creator can delete tasks.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        self.perform_destroy(instance)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    def create(self, request, *args, **kwargs):
+        """Creates a new task and returns it in the list format."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Validate board access
+        board_id = request.data.get('board')
+        if board_id:
+            try:
+                board = Board.objects.get(id=board_id)
+                user = request.user
+                if board.owner != user and user not in board.members.all():
+                    return Response(
+                        {'error': 'You must be a member of the board to create tasks.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            except Board.DoesNotExist:
+                return Response(
+                    {'error': 'Board not found.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        task = serializer.save()
+        
+        # Reload task with related data for response
+        task = Task.objects.select_related('column__board').prefetch_related(
+            'subtasks', 'comments', 'assigned_to'
+        ).get(id=task.id)
+        
+        # Return response using TaskListSerializer format
+        response_serializer = TaskListSerializer(task)
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
 
     @action(detail=False, methods=['get'], url_path='assigned-to-me')
     def assigned_to_me(self, request):
@@ -138,7 +230,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         tasks = Task.objects.filter(
             assigned_to=request.user
-        ).prefetch_related('subtasks', 'comments', 'assigned_to')
+        ).select_related('column__board').prefetch_related(
+            'subtasks', 'comments', 'assigned_to'
+        )
 
         serializer = TaskListSerializer(tasks, many=True)
         return Response(serializer.data)
@@ -146,16 +240,24 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='reviewing')
     def reviewing(self, request):
         """
-        Returns all tasks the user created (for reviewing).
+        Returns all tasks where the current user is the reviewer.
         GET /api/tasks/reviewing/
         """
-        tasks = Task.objects.filter(
-            column__board__owner=request.user
-        ).exclude(
+        # Get all tasks where user is in assigned_to
+        all_tasks = Task.objects.filter(
             assigned_to=request.user
-        ).prefetch_related('subtasks', 'comments', 'assigned_to')
+        ).select_related('column__board').prefetch_related(
+            'subtasks', 'comments', 'assigned_to'
+        )
+        
+        # Filter tasks where user is the reviewer (second in assigned_to)
+        reviewing_tasks = []
+        for task in all_tasks:
+            assigned_users = list(task.assigned_to.all())
+            if len(assigned_users) > 1 and assigned_users[1].id == request.user.id:
+                reviewing_tasks.append(task)
 
-        serializer = TaskListSerializer(tasks, many=True)
+        serializer = TaskListSerializer(reviewing_tasks, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch'])
@@ -248,16 +350,71 @@ class CommentViewSet(viewsets.ModelViewSet):
             return Comment.objects.none()
         return Comment.objects.filter(task_id=task_id).select_related('author')
 
-    def perform_create(self, serializer):
-        """Creates a new comment."""
+    def list(self, request, *args, **kwargs):
+        """List comments with board membership check."""
+        task_id = self.kwargs.get('task_pk')
+        if task_id:
+            try:
+                task = Task.objects.select_related('column__board').get(id=task_id)
+                board = task.column.board
+                user = request.user
+                
+                if board.owner != user and user not in board.members.all():
+                    return Response(
+                        {'error': 'You must be a member of the board to view comments.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            except Task.DoesNotExist:
+                return Response(
+                    {'error': 'Task not found.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        """Creates a new comment and returns it with proper status code."""
         task_id = self.kwargs.get('task_pk')
         if not task_id:
-            raise serializers.ValidationError({'task': 'Task ID is required.'})
+            return Response(
+                {'error': 'Task ID is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        # Verify task exists
+        # Check if task exists and user has board access
         try:
-            task = Task.objects.get(pk=task_id)
+            task = Task.objects.select_related('column__board').get(pk=task_id)
+            board = task.column.board
+            user = request.user
+            
+            if board.owner != user and user not in board.members.all():
+                return Response(
+                    {'error': 'You must be a member of the board to create comments.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
         except Task.DoesNotExist:
-            raise serializers.ValidationError({'task': 'Task not found.'})
+            return Response(
+                {'error': 'Task not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
-        serializer.save(task=task, author=self.request.user)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.save(task=task, author=request.user)
+        
+        # Reload comment with author data
+        comment = Comment.objects.select_related('author').get(id=comment.id)
+        
+        response_serializer = CommentSerializer(comment)
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        """Deletes a comment. Only the comment author can delete."""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

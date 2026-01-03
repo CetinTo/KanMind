@@ -123,24 +123,40 @@ class UserProfileView(RetrieveUpdateAPIView):
 class EmailCheckView(APIView):
     """
     API endpoint for email availability check.
-    POST /api/email-check/
+    GET /api/email-check/?email=...
     
-    Expects: { "email": "..." }
-    Returns: { "available": true/false }
+    Query Parameters:
+        email: The email address to check
+    
+    Returns: User object if exists, or 404 if not found.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        email = request.data.get('email')
+    def get(self, request):
+        """GET /api/email-check/?email=..."""
+        email = request.query_params.get('email')
         
         if not email:
             return Response(
-                {'error': 'Email is required.'},
+                {'error': 'Email query parameter is required.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        is_available = not User.objects.filter(email=email).exists()
-        
-        return Response({
-            'available': is_available
-        })
+        try:
+            user = User.objects.get(email=email)
+            
+            # Compose fullname
+            fullname = f"{user.first_name} {user.last_name}".strip()
+            if not fullname:
+                fullname = user.username
+            
+            return Response({
+                'id': user.id,
+                'email': user.email,
+                'fullname': fullname
+            })
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Email not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )

@@ -48,12 +48,19 @@ class SubtaskSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     """Serializer for comments."""
-    author = UserMinimalSerializer(read_only=True)
+    author = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
-        fields = ['id', 'author', 'content', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at']
+        fields = ['id', 'created_at', 'author', 'content']
+        read_only_fields = ['id', 'author', 'created_at']
+
+    def get_author(self, obj):
+        """Returns the full name of the author."""
+        fullname = f"{obj.author.first_name} {obj.author.last_name}".strip()
+        if not fullname:
+            fullname = obj.author.username
+        return fullname
 
 
 class BoardTaskSerializer(serializers.ModelSerializer):
@@ -172,11 +179,19 @@ class TaskSerializer(serializers.ModelSerializer):
                     column = Column.objects.filter(board_id=board_id).first()
                     if column:
                         validated_data['column'] = column
+                    else:
+                        raise serializers.ValidationError(
+                            {'board': f'Board {board_id} has no columns. Please create columns first.'}
+                        )
             elif board_id:
                 # If no status but board_id, use first column
                 column = Column.objects.filter(board_id=board_id).first()
                 if column:
                     validated_data['column'] = column
+                else:
+                    raise serializers.ValidationError(
+                        {'board': f'Board {board_id} has no columns. Please create columns first.'}
+                    )
         
         # Validate that column is set
         if 'column' not in validated_data:
@@ -184,13 +199,28 @@ class TaskSerializer(serializers.ModelSerializer):
                 {'column': 'Column is required. Provide either column, or board + status.'}
             )
 
+        # Set created_by to current user before creating
+        validated_data['created_by'] = self.context['request'].user
         task = super().create(validated_data)
 
-        # Assign assignee and reviewer
+        # Assign assignee and reviewer (validate user existence)
+        from django.contrib.auth.models import User
         if assignee_id:
-            task.assigned_to.add(assignee_id)
+            try:
+                User.objects.get(id=assignee_id)
+                task.assigned_to.add(assignee_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'assignee_id': f'User with ID {assignee_id} does not exist.'}
+                )
         if reviewer_id:
-            task.assigned_to.add(reviewer_id)
+            try:
+                User.objects.get(id=reviewer_id)
+                task.assigned_to.add(reviewer_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'reviewer_id': f'User with ID {reviewer_id} does not exist.'}
+                )
 
         return task
 
@@ -235,6 +265,56 @@ class TaskListSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     assignee = serializers.SerializerMethodField()
     reviewer = serializers.SerializerMethodField()
+    board = serializers.IntegerField(source='column.board.id', read_only=True)
+    comments_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'board',
+            'title',
+            'description',
+            'status',
+            'priority',
+            'assignee',
+            'reviewer',
+            'due_date',
+            'comments_count',
+        ]
+
+    def get_status(self, obj):
+        title = obj.column.title.lower()
+        status_map = {
+            'to do': 'to-do',
+            'in progress': 'in-progress',
+            'review': 'review',
+            'done': 'done',
+        }
+        return status_map.get(title, title.replace(' ', '-'))
+
+    def get_assignee(self, obj):
+        assignee = obj.assigned_to.first()
+        if assignee:
+            return MemberSerializer(assignee).data
+        return None
+
+    def get_reviewer(self, obj):
+        if obj.assigned_to.count() > 1:
+            reviewer = obj.assigned_to.all()[1]
+            return MemberSerializer(reviewer).data
+        return None
+
+    def get_comments_count(self, obj):
+        """Returns the number of comments for the task."""
+        return obj.comments.count()
+
+
+class TaskUpdateResponseSerializer(serializers.ModelSerializer):
+    """Serializer for task update response (without board and comments_count)."""
+    status = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
+    reviewer = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -244,9 +324,9 @@ class TaskListSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'priority',
-            'due_date',
             'assignee',
             'reviewer',
+            'due_date',
         ]
 
     def get_status(self, obj):

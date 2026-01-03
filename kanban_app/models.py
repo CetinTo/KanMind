@@ -77,6 +77,14 @@ class Task(models.Model):
         related_name='tasks',
         verbose_name='Column'
     )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='created_tasks',
+        null=True,
+        blank=True,
+        verbose_name='Created by'
+    )
     assigned_to = models.ManyToManyField(
         User,
         related_name='assigned_tasks',
