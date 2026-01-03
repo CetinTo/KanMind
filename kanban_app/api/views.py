@@ -66,6 +66,12 @@ class BoardViewSet(viewsets.ModelViewSet):
         list_serializer = BoardListSerializer(board)
         return Response(list_serializer.data, status=status.HTTP_201_CREATED)
 
+    def destroy(self, request, *args, **kwargs):
+        """Deletes a board. Only the board owner can delete."""
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
 
 class ColumnViewSet(viewsets.ModelViewSet):
     """
