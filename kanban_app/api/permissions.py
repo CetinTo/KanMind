@@ -16,10 +16,17 @@ class IsBoardOwner(permissions.BasePermission):
 class IsBoardMemberOrOwner(permissions.BasePermission):
     """
     Allows access for board owners and members.
+    DELETE is only allowed for board owners.
     """
 
     def has_object_permission(self, request, view, obj):
-        # For Board objects
+        # DELETE is only allowed for board owners
+        if request.method == 'DELETE':
+            if hasattr(obj, 'owner'):
+                return obj.owner == request.user
+            return False
+
+        # For Board objects - read/update for owners and members
         if hasattr(obj, 'owner'):
             return obj.owner == request.user or request.user in obj.members.all()
 

@@ -83,7 +83,7 @@ class RegistrationView(CreateAPIView):
         # Create token
         token, _ = Token.objects.get_or_create(user=user)
 
-        # Compose fullname
+        # Compose fullname from first_name and last_name
         fullname = f"{user.first_name} {user.last_name}".strip()
         if not fullname:
             fullname = user.username

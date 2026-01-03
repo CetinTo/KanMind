@@ -1,6 +1,6 @@
 # 1. Third-party
 from django.db.models import Q
-from rest_framework import serializers, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -11,6 +11,7 @@ from .permissions import IsBoardMemberOrOwner, IsCommentAuthor
 from .serializers import (
     BoardListSerializer,
     BoardSerializer,
+    BoardUpdateSerializer,
     ColumnSerializer,
     CommentSerializer,
     SubtaskSerializer,
@@ -42,10 +43,14 @@ class BoardViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'list':
             return BoardListSerializer
+        elif self.action in ['update', 'partial_update']:
+            return BoardUpdateSerializer
         return BoardSerializer
 
-    def perform_create(self, serializer):
-        """Creates a new board with default columns."""
+    def create(self, request, *args, **kwargs):
+        """Creates a new board with default columns and returns BoardListSerializer format."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         board = serializer.save(owner=self.request.user)
 
         # Create default columns (4 for frontend compatibility)
@@ -55,6 +60,10 @@ class BoardViewSet(viewsets.ModelViewSet):
             Column(board=board, title='Review', position=2),
             Column(board=board, title='Done', position=3),
         ])
+
+        # Return BoardListSerializer format
+        list_serializer = BoardListSerializer(board)
+        return Response(list_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ColumnViewSet(viewsets.ModelViewSet):
