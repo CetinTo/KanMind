@@ -37,8 +37,8 @@ class LoginView(APIView):
                 username = user_obj.username
             except User.DoesNotExist:
                 return Response(
-                    {'error': 'User not found.'},
-                    status=status.HTTP_401_UNAUTHORIZED
+                    {'error': 'User does not exist.'},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
         # Authentication
@@ -47,7 +47,7 @@ class LoginView(APIView):
         if user is None:
             return Response(
                 {'error': 'Invalid credentials.'},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         # Create or retrieve token

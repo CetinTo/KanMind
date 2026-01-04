@@ -40,6 +40,27 @@ class BoardViewSet(viewsets.ModelViewSet):
         return Board.objects.filter(
             Q(owner=user) | Q(members=user)
         ).distinct().prefetch_related('columns', 'members')
+    
+    def get_object(self):
+        """Override to return 403 instead of 404 for unauthorized access."""
+        try:
+            obj = super().get_object()
+        except Exception:
+            # If object not in queryset, check if it exists but user has no permission
+            pk = self.kwargs.get('pk')
+            if pk:
+                try:
+                    board = Board.objects.get(pk=pk)
+                    user = self.request.user
+                    # Check permission first (403)
+                    if board.owner != user and user not in board.members.all():
+                        from rest_framework.exceptions import PermissionDenied
+                        raise PermissionDenied('You do not have permission to access this board.')
+                except Board.DoesNotExist:
+                    pass
+            # Re-raise original exception (404)
+            raise
+        return obj
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -103,7 +124,17 @@ class ColumnViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Creates a new column in the specified board."""
         board_id = self.kwargs.get('board_pk')
-        board = Board.objects.get(pk=board_id)
+        user = self.request.user
+        
+        try:
+            board = Board.objects.get(pk=board_id)
+            # Check permission first (403)
+            if board.owner != user and user not in board.members.all():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('You must be a member of the board to create columns.')
+        except Board.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound('Board not found.')
 
         # Set position to end
         last_position = Column.objects.filter(board=board).count()
@@ -131,6 +162,27 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Task.objects.filter(
             Q(column__board__owner=user) | Q(column__board__members=user)
         ).distinct().prefetch_related('subtasks', 'comments', 'assigned_to')
+    
+    def get_object(self):
+        """Override to return 403 instead of 404 for unauthorized access."""
+        try:
+            obj = super().get_object()
+        except Exception:
+            # If object not in queryset, check if it exists but user has no permission
+            pk = self.kwargs.get('pk')
+            if pk:
+                try:
+                    task = Task.objects.select_related('column__board').get(pk=pk)
+                    board = task.column.board
+                    user = self.request.user
+                    if board.owner != user and user not in board.members.all():
+                        from rest_framework.exceptions import PermissionDenied
+                        raise PermissionDenied('You do not have permission to access this task.')
+                except Task.DoesNotExist:
+                    pass
+            # Re-raise original exception (404)
+            raise
+        return obj
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -163,6 +215,10 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = Task.objects.select_related('column__board').prefetch_related(
             'subtasks', 'comments', 'assigned_to'
         ).get(id=task.id)
+        
+        # Preserve reviewer_only flag if it exists
+        if hasattr(serializer.instance, '_reviewer_only'):
+            task._reviewer_only = serializer.instance._reviewer_only
         
         # Return response using TaskUpdateResponseSerializer format
         response_serializer = TaskUpdateResponseSerializer(task)
@@ -198,15 +254,19 @@ class TaskViewSet(viewsets.ModelViewSet):
         # Validate board access
         board_id = request.data.get('board')
         if board_id:
+            # First check if user has permission (403), then check if board exists (404)
+            user = request.user
             try:
                 board = Board.objects.get(id=board_id)
-                user = request.user
+                # Check permission first
                 if board.owner != user and user not in board.members.all():
                     return Response(
                         {'error': 'You must be a member of the board to create tasks.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
             except Board.DoesNotExist:
+                # Only return 404 if user would have permission (but board doesn't exist)
+                # If user has no permission, we already returned 403 above
                 return Response(
                     {'error': 'Board not found.'},
                     status=status.HTTP_404_NOT_FOUND
@@ -218,6 +278,10 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = Task.objects.select_related('column__board').prefetch_related(
             'subtasks', 'comments', 'assigned_to'
         ).get(id=task.id)
+        
+        # Preserve reviewer_only flag if it exists
+        if hasattr(serializer.instance, '_reviewer_only'):
+            task._reviewer_only = serializer.instance._reviewer_only
         
         # Return response using TaskListSerializer format
         response_serializer = TaskListSerializer(task)
@@ -315,9 +379,15 @@ class SubtaskViewSet(viewsets.ModelViewSet):
         if not task_id:
             raise serializers.ValidationError({'task': 'Task ID is required.'})
         
-        # Verify task exists
+        user = self.request.user
+        # Verify task exists and check permission first (403)
         try:
-            task = Task.objects.get(pk=task_id)
+            task = Task.objects.select_related('column__board').get(pk=task_id)
+            board = task.column.board
+            # Check permission first (403)
+            if board.owner != user and user not in board.members.all():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('You must be a member of the board to create subtasks.')
         except Task.DoesNotExist:
             raise serializers.ValidationError({'task': 'Task not found.'})
         
@@ -360,17 +430,20 @@ class CommentViewSet(viewsets.ModelViewSet):
         """List comments with board membership check."""
         task_id = self.kwargs.get('task_pk')
         if task_id:
+            user = request.user
             try:
                 task = Task.objects.select_related('column__board').get(id=task_id)
                 board = task.column.board
-                user = request.user
                 
+                # Check permission first (403)
                 if board.owner != user and user not in board.members.all():
                     return Response(
                         {'error': 'You must be a member of the board to view comments.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
             except Task.DoesNotExist:
+                # Only return 404 if user would have permission (but task doesn't exist)
+                # If user has no permission, we already returned 403 above
                 return Response(
                     {'error': 'Task not found.'},
                     status=status.HTTP_404_NOT_FOUND
@@ -388,17 +461,20 @@ class CommentViewSet(viewsets.ModelViewSet):
             )
         
         # Check if task exists and user has board access
+        user = request.user
         try:
             task = Task.objects.select_related('column__board').get(pk=task_id)
             board = task.column.board
-            user = request.user
             
+            # Check permission first (403)
             if board.owner != user and user not in board.members.all():
                 return Response(
                     {'error': 'You must be a member of the board to create comments.'},
                     status=status.HTTP_403_FORBIDDEN
                 )
         except Task.DoesNotExist:
+            # Only return 404 if user would have permission (but task doesn't exist)
+            # If user has no permission, we already returned 403 above
             return Response(
                 {'error': 'Task not found.'},
                 status=status.HTTP_404_NOT_FOUND

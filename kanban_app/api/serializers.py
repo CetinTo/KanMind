@@ -97,16 +97,27 @@ class BoardTaskSerializer(serializers.ModelSerializer):
 
     def get_assignee(self, obj):
         """Returns the first assigned user as assignee."""
-        assignee = obj.assigned_to.first()
-        if assignee:
-            return MemberSerializer(assignee).data
+        assigned_users = list(obj.assigned_to.all())
+        # Check if this is a reviewer-only case
+        is_reviewer_only = getattr(obj, '_reviewer_only', False)
+        if is_reviewer_only and len(assigned_users) == 1:
+            # Reviewer-only case: assignee is null
+            return None
+        if assigned_users:
+            return MemberSerializer(assigned_users[0]).data
         return None
 
     def get_reviewer(self, obj):
-        """Returns the board owner as reviewer (or second assigned user)."""
-        if obj.assigned_to.count() > 1:
-            reviewer = obj.assigned_to.all()[1]
+        """Returns the reviewer (second assigned user, or first if only reviewer exists)."""
+        assigned_users = list(obj.assigned_to.all())
+        is_reviewer_only = getattr(obj, '_reviewer_only', False)
+        if len(assigned_users) > 1:
+            # If there are 2+ users, reviewer is the second one
+            reviewer = assigned_users[1]
             return MemberSerializer(reviewer).data
+        elif len(assigned_users) == 1 and is_reviewer_only:
+            # Reviewer-only case: return the user as reviewer
+            return MemberSerializer(assigned_users[0]).data
         return None
 
     def get_comments_count(self, obj):
@@ -204,19 +215,25 @@ class TaskSerializer(serializers.ModelSerializer):
         task = super().create(validated_data)
 
         # Assign assignee and reviewer (validate user existence)
+        # Important: assignee must be first, reviewer must be second
+        # If only reviewer_id is set, reviewer will be the only user
+        # We'll handle this in get_assignee/get_reviewer methods
         from django.contrib.auth.models import User
         if assignee_id:
             try:
-                User.objects.get(id=assignee_id)
-                task.assigned_to.add(assignee_id)
+                assignee_user = User.objects.get(id=assignee_id)
+                task.assigned_to.add(assignee_user)
             except User.DoesNotExist:
                 raise serializers.ValidationError(
                     {'assignee_id': f'User with ID {assignee_id} does not exist.'}
                 )
         if reviewer_id:
             try:
-                User.objects.get(id=reviewer_id)
-                task.assigned_to.add(reviewer_id)
+                reviewer_user = User.objects.get(id=reviewer_id)
+                task.assigned_to.add(reviewer_user)
+                # Store that reviewer_id was explicitly set (for reviewer-only case)
+                if not assignee_id:
+                    task._reviewer_only = True
             except User.DoesNotExist:
                 raise serializers.ValidationError(
                     {'reviewer_id': f'User with ID {reviewer_id} does not exist.'}
@@ -250,12 +267,16 @@ class TaskSerializer(serializers.ModelSerializer):
         task = super().update(instance, validated_data)
 
         # Update assignee and reviewer
+        # Important: assignee must be first, reviewer must be second
         if assignee_id is not None or reviewer_id is not None:
             task.assigned_to.clear()
             if assignee_id:
                 task.assigned_to.add(assignee_id)
             if reviewer_id:
                 task.assigned_to.add(reviewer_id)
+                # Store that reviewer_id was explicitly set (for reviewer-only case)
+                if not assignee_id:
+                    task._reviewer_only = True
 
         return task
 
@@ -294,15 +315,28 @@ class TaskListSerializer(serializers.ModelSerializer):
         return status_map.get(title, title.replace(' ', '-'))
 
     def get_assignee(self, obj):
-        assignee = obj.assigned_to.first()
-        if assignee:
-            return MemberSerializer(assignee).data
+        """Returns the first assigned user as assignee."""
+        assigned_users = list(obj.assigned_to.all())
+        # Check if this is a reviewer-only case
+        is_reviewer_only = getattr(obj, '_reviewer_only', False)
+        if is_reviewer_only and len(assigned_users) == 1:
+            # Reviewer-only case: assignee is null
+            return None
+        if assigned_users:
+            return MemberSerializer(assigned_users[0]).data
         return None
 
     def get_reviewer(self, obj):
-        if obj.assigned_to.count() > 1:
-            reviewer = obj.assigned_to.all()[1]
+        """Returns the reviewer (second assigned user, or first if only reviewer exists)."""
+        assigned_users = list(obj.assigned_to.all())
+        is_reviewer_only = getattr(obj, '_reviewer_only', False)
+        if len(assigned_users) > 1:
+            # If there are 2+ users, reviewer is the second one
+            reviewer = assigned_users[1]
             return MemberSerializer(reviewer).data
+        elif len(assigned_users) == 1 and is_reviewer_only:
+            # Reviewer-only case: return the user as reviewer
+            return MemberSerializer(assigned_users[0]).data
         return None
 
     def get_comments_count(self, obj):
@@ -345,10 +379,29 @@ class TaskUpdateResponseSerializer(serializers.ModelSerializer):
             return MemberSerializer(assignee).data
         return None
 
+    def get_assignee(self, obj):
+        """Returns the first assigned user as assignee."""
+        assigned_users = list(obj.assigned_to.all())
+        # Check if this is a reviewer-only case
+        is_reviewer_only = getattr(obj, '_reviewer_only', False)
+        if is_reviewer_only and len(assigned_users) == 1:
+            # Reviewer-only case: assignee is null
+            return None
+        if assigned_users:
+            return MemberSerializer(assigned_users[0]).data
+        return None
+
     def get_reviewer(self, obj):
-        if obj.assigned_to.count() > 1:
-            reviewer = obj.assigned_to.all()[1]
+        """Returns the reviewer (second assigned user, or first if only reviewer exists)."""
+        assigned_users = list(obj.assigned_to.all())
+        is_reviewer_only = getattr(obj, '_reviewer_only', False)
+        if len(assigned_users) > 1:
+            # If there are 2+ users, reviewer is the second one
+            reviewer = assigned_users[1]
             return MemberSerializer(reviewer).data
+        elif len(assigned_users) == 1 and is_reviewer_only:
+            # Reviewer-only case: return the user as reviewer
+            return MemberSerializer(assigned_users[0]).data
         return None
 
 
