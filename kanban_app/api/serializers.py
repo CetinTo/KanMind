@@ -100,18 +100,40 @@ class BoardTaskSerializer(serializers.ModelSerializer):
         assigned_users = list(obj.assigned_to.all())
         reviewer_id = getattr(obj, '_reviewer_id', None)
         has_assignee = getattr(obj, '_has_assignee', None)
+        assignee_id = getattr(obj, '_assignee_id', None)
+        
+        # If assignee_id was explicitly set, ALWAYS return assignee as object
+        if assignee_id is not None:
+            # Find assignee by ID in assigned_users
+            for user in assigned_users:
+                if user.id == assignee_id:
+                    return MemberSerializer(user).data
+            # If assignee_id was set but not found in assigned_users, get from database
+            from django.contrib.auth.models import User
+            try:
+                assignee_user = User.objects.get(id=assignee_id)
+                return MemberSerializer(assignee_user).data
+            except User.DoesNotExist:
+                pass
         
         # If reviewer_id was set but no assignee, assignee is null
         if reviewer_id is not None and has_assignee is False:
             return None
         
-        # If reviewer_id was set, make sure first user is not the reviewer
+        # If reviewer_id was set and only one user, check if it's the reviewer
         if reviewer_id is not None and len(assigned_users) == 1:
             if assigned_users[0].id == reviewer_id:
                 return None
         
-        if assigned_users:
+        # If 2+ users, first is always assignee (as object)
+        if len(assigned_users) > 1:
             return MemberSerializer(assigned_users[0]).data
+        
+        # If only one user and reviewer_id not set or not matching, it's assignee
+        if len(assigned_users) == 1:
+            if reviewer_id is None or assigned_users[0].id != reviewer_id:
+                return MemberSerializer(assigned_users[0]).data
+        
         return None
 
     def get_reviewer(self, obj):
@@ -120,13 +142,13 @@ class BoardTaskSerializer(serializers.ModelSerializer):
         reviewer_id = getattr(obj, '_reviewer_id', None)
         has_assignee = getattr(obj, '_has_assignee', None)
         
-        # If reviewer_id was explicitly set, always return reviewer as object
+        # If reviewer_id was explicitly set, ALWAYS return reviewer as object
         if reviewer_id is not None:
             # Find reviewer by ID in assigned_users
             for user in assigned_users:
                 if user.id == reviewer_id:
                     return MemberSerializer(user).data
-            # If reviewer_id was set but not found, try to get it from database
+            # If reviewer_id was set but not found in assigned_users, get from database
             from django.contrib.auth.models import User
             try:
                 reviewer_user = User.objects.get(id=reviewer_id)
@@ -134,13 +156,17 @@ class BoardTaskSerializer(serializers.ModelSerializer):
             except User.DoesNotExist:
                 pass
         
-        # Fallback: if 2+ users, reviewer is the second one
+        # If 2+ users, reviewer is ALWAYS the second one (as object)
         if len(assigned_users) > 1:
-            reviewer = assigned_users[1]
-            return MemberSerializer(reviewer).data
-        # If only one user and no assignee, it's the reviewer
-        elif len(assigned_users) == 1 and has_assignee is False:
-            return MemberSerializer(assigned_users[0]).data
+            return MemberSerializer(assigned_users[1]).data
+        
+        # If only one user and no assignee (reviewer-only case), return as reviewer
+        if len(assigned_users) == 1:
+            if has_assignee is False:
+                return MemberSerializer(assigned_users[0]).data
+            # If reviewer_id was set and matches, return as reviewer
+            if reviewer_id is not None and assigned_users[0].id == reviewer_id:
+                return MemberSerializer(assigned_users[0]).data
         
         return None
 
@@ -240,12 +266,14 @@ class TaskSerializer(serializers.ModelSerializer):
 
         # Assign assignee and reviewer (validate user existence)
         # Important: assignee must be first, reviewer must be second
-        # Store reviewer_id in task for later reference
+        # Store assignee_id and reviewer_id for later reference
         from django.contrib.auth.models import User
         if assignee_id:
             try:
                 assignee_user = User.objects.get(id=assignee_id)
                 task.assigned_to.add(assignee_user)
+                # Store assignee_id for later reference
+                task._assignee_id = assignee_id
             except User.DoesNotExist:
                 raise serializers.ValidationError(
                     {'assignee_id': f'User with ID {assignee_id} does not exist.'}
@@ -295,6 +323,8 @@ class TaskSerializer(serializers.ModelSerializer):
             task.assigned_to.clear()
             if assignee_id:
                 task.assigned_to.add(assignee_id)
+                # Store assignee_id for later reference
+                task._assignee_id = assignee_id
             if reviewer_id:
                 task.assigned_to.add(reviewer_id)
                 # Store reviewer_id for later reference
@@ -342,18 +372,40 @@ class TaskListSerializer(serializers.ModelSerializer):
         assigned_users = list(obj.assigned_to.all())
         reviewer_id = getattr(obj, '_reviewer_id', None)
         has_assignee = getattr(obj, '_has_assignee', None)
+        assignee_id = getattr(obj, '_assignee_id', None)
+        
+        # If assignee_id was explicitly set, ALWAYS return assignee as object
+        if assignee_id is not None:
+            # Find assignee by ID in assigned_users
+            for user in assigned_users:
+                if user.id == assignee_id:
+                    return MemberSerializer(user).data
+            # If assignee_id was set but not found in assigned_users, get from database
+            from django.contrib.auth.models import User
+            try:
+                assignee_user = User.objects.get(id=assignee_id)
+                return MemberSerializer(assignee_user).data
+            except User.DoesNotExist:
+                pass
         
         # If reviewer_id was set but no assignee, assignee is null
         if reviewer_id is not None and has_assignee is False:
             return None
         
-        # If reviewer_id was set, make sure first user is not the reviewer
+        # If reviewer_id was set and only one user, check if it's the reviewer
         if reviewer_id is not None and len(assigned_users) == 1:
             if assigned_users[0].id == reviewer_id:
                 return None
         
-        if assigned_users:
+        # If 2+ users, first is always assignee (as object)
+        if len(assigned_users) > 1:
             return MemberSerializer(assigned_users[0]).data
+        
+        # If only one user and reviewer_id not set or not matching, it's assignee
+        if len(assigned_users) == 1:
+            if reviewer_id is None or assigned_users[0].id != reviewer_id:
+                return MemberSerializer(assigned_users[0]).data
+        
         return None
 
     def get_reviewer(self, obj):
@@ -362,13 +414,13 @@ class TaskListSerializer(serializers.ModelSerializer):
         reviewer_id = getattr(obj, '_reviewer_id', None)
         has_assignee = getattr(obj, '_has_assignee', None)
         
-        # If reviewer_id was explicitly set, always return reviewer as object
+        # If reviewer_id was explicitly set, ALWAYS return reviewer as object
         if reviewer_id is not None:
             # Find reviewer by ID in assigned_users
             for user in assigned_users:
                 if user.id == reviewer_id:
                     return MemberSerializer(user).data
-            # If reviewer_id was set but not found, try to get it from database
+            # If reviewer_id was set but not found in assigned_users, get from database
             from django.contrib.auth.models import User
             try:
                 reviewer_user = User.objects.get(id=reviewer_id)
@@ -376,13 +428,17 @@ class TaskListSerializer(serializers.ModelSerializer):
             except User.DoesNotExist:
                 pass
         
-        # Fallback: if 2+ users, reviewer is the second one
+        # If 2+ users, reviewer is ALWAYS the second one (as object)
         if len(assigned_users) > 1:
-            reviewer = assigned_users[1]
-            return MemberSerializer(reviewer).data
-        # If only one user and no assignee, it's the reviewer
-        elif len(assigned_users) == 1 and has_assignee is False:
-            return MemberSerializer(assigned_users[0]).data
+            return MemberSerializer(assigned_users[1]).data
+        
+        # If only one user and no assignee (reviewer-only case), return as reviewer
+        if len(assigned_users) == 1:
+            if has_assignee is False:
+                return MemberSerializer(assigned_users[0]).data
+            # If reviewer_id was set and matches, return as reviewer
+            if reviewer_id is not None and assigned_users[0].id == reviewer_id:
+                return MemberSerializer(assigned_users[0]).data
         
         return None
 
@@ -425,18 +481,40 @@ class TaskUpdateResponseSerializer(serializers.ModelSerializer):
         assigned_users = list(obj.assigned_to.all())
         reviewer_id = getattr(obj, '_reviewer_id', None)
         has_assignee = getattr(obj, '_has_assignee', None)
+        assignee_id = getattr(obj, '_assignee_id', None)
+        
+        # If assignee_id was explicitly set, ALWAYS return assignee as object
+        if assignee_id is not None:
+            # Find assignee by ID in assigned_users
+            for user in assigned_users:
+                if user.id == assignee_id:
+                    return MemberSerializer(user).data
+            # If assignee_id was set but not found in assigned_users, get from database
+            from django.contrib.auth.models import User
+            try:
+                assignee_user = User.objects.get(id=assignee_id)
+                return MemberSerializer(assignee_user).data
+            except User.DoesNotExist:
+                pass
         
         # If reviewer_id was set but no assignee, assignee is null
         if reviewer_id is not None and has_assignee is False:
             return None
         
-        # If reviewer_id was set, make sure first user is not the reviewer
+        # If reviewer_id was set and only one user, check if it's the reviewer
         if reviewer_id is not None and len(assigned_users) == 1:
             if assigned_users[0].id == reviewer_id:
                 return None
         
-        if assigned_users:
+        # If 2+ users, first is always assignee (as object)
+        if len(assigned_users) > 1:
             return MemberSerializer(assigned_users[0]).data
+        
+        # If only one user and reviewer_id not set or not matching, it's assignee
+        if len(assigned_users) == 1:
+            if reviewer_id is None or assigned_users[0].id != reviewer_id:
+                return MemberSerializer(assigned_users[0]).data
+        
         return None
 
     def get_reviewer(self, obj):
@@ -445,13 +523,13 @@ class TaskUpdateResponseSerializer(serializers.ModelSerializer):
         reviewer_id = getattr(obj, '_reviewer_id', None)
         has_assignee = getattr(obj, '_has_assignee', None)
         
-        # If reviewer_id was explicitly set, always return reviewer as object
+        # If reviewer_id was explicitly set, ALWAYS return reviewer as object
         if reviewer_id is not None:
             # Find reviewer by ID in assigned_users
             for user in assigned_users:
                 if user.id == reviewer_id:
                     return MemberSerializer(user).data
-            # If reviewer_id was set but not found, try to get it from database
+            # If reviewer_id was set but not found in assigned_users, get from database
             from django.contrib.auth.models import User
             try:
                 reviewer_user = User.objects.get(id=reviewer_id)
@@ -459,13 +537,17 @@ class TaskUpdateResponseSerializer(serializers.ModelSerializer):
             except User.DoesNotExist:
                 pass
         
-        # Fallback: if 2+ users, reviewer is the second one
+        # If 2+ users, reviewer is ALWAYS the second one (as object)
         if len(assigned_users) > 1:
-            reviewer = assigned_users[1]
-            return MemberSerializer(reviewer).data
-        # If only one user and no assignee, it's the reviewer
-        elif len(assigned_users) == 1 and has_assignee is False:
-            return MemberSerializer(assigned_users[0]).data
+            return MemberSerializer(assigned_users[1]).data
+        
+        # If only one user and no assignee (reviewer-only case), return as reviewer
+        if len(assigned_users) == 1:
+            if has_assignee is False:
+                return MemberSerializer(assigned_users[0]).data
+            # If reviewer_id was set and matches, return as reviewer
+            if reviewer_id is not None and assigned_users[0].id == reviewer_id:
+                return MemberSerializer(assigned_users[0]).data
         
         return None
 

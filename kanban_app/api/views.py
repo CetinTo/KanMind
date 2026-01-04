@@ -216,7 +216,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             'subtasks', 'comments', 'assigned_to'
         ).get(id=task.id)
         
-        # Preserve reviewer_id and has_assignee flags if they exist
+        # Preserve assignee_id, reviewer_id and has_assignee flags if they exist
+        if hasattr(serializer.instance, '_assignee_id'):
+            task._assignee_id = serializer.instance._assignee_id
         if hasattr(serializer.instance, '_reviewer_id'):
             task._reviewer_id = serializer.instance._reviewer_id
         if hasattr(serializer.instance, '_has_assignee'):
@@ -281,7 +283,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             'subtasks', 'comments', 'assigned_to'
         ).get(id=task.id)
         
-        # Preserve reviewer_id and has_assignee flags if they exist
+        # Preserve assignee_id, reviewer_id and has_assignee flags if they exist
+        if hasattr(serializer.instance, '_assignee_id'):
+            task._assignee_id = serializer.instance._assignee_id
         if hasattr(serializer.instance, '_reviewer_id'):
             task._reviewer_id = serializer.instance._reviewer_id
         if hasattr(serializer.instance, '_has_assignee'):
@@ -501,28 +505,33 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         """Deletes a comment. Only the comment author can delete."""
-        try:
-            instance = self.get_object()
-        except Exception:
-            # If comment doesn't exist or user has no permission, return 404
-            comment_id = self.kwargs.get('pk')
-            task_id = self.kwargs.get('task_pk')
-            if comment_id and task_id:
-                try:
-                    from kanban_app.models import Comment, Task
-                    comment = Comment.objects.get(pk=comment_id, task_id=task_id)
-                    # Check if user is comment author
-                    if comment.author != request.user:
-                        from rest_framework.exceptions import PermissionDenied
-                        raise PermissionDenied('Only the comment author can delete comments.')
-                except Comment.DoesNotExist:
-                    from rest_framework.exceptions import NotFound
-                    raise NotFound('Comment not found.')
-                except Task.DoesNotExist:
-                    from rest_framework.exceptions import NotFound
-                    raise NotFound('Task not found.')
-            # Re-raise original exception
-            raise
+        comment_id = self.kwargs.get('pk')
+        task_id = self.kwargs.get('task_pk')
         
-        self.perform_destroy(instance)
+        # ALWAYS check if comment exists first (404), then check permission (403)
+        # This prevents 401 errors when comment doesn't exist
+        from kanban_app.models import Comment, Task
+        from rest_framework.exceptions import NotFound, PermissionDenied
+        
+        if not comment_id or not task_id:
+            raise NotFound('Comment not found.')
+        
+        # Check if task exists
+        try:
+            task = Task.objects.get(pk=task_id)
+        except Task.DoesNotExist:
+            raise NotFound('Task not found.')
+        
+        # Check if comment exists (404)
+        try:
+            comment = Comment.objects.get(pk=comment_id, task_id=task_id)
+        except Comment.DoesNotExist:
+            raise NotFound('Comment not found.')
+        
+        # Check if user is comment author (403)
+        if comment.author != request.user:
+            raise PermissionDenied('Only the comment author can delete comments.')
+        
+        # Comment exists and user has permission, proceed with deletion
+        self.perform_destroy(comment)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
